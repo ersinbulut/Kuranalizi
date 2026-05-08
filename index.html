@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FOREX.AI — Haftalık Kar Tahmin Motoru</title>
+<title>FOREX.AI — Yapay Zeka Destekli Canlı Kur Tahmin Motoru</title>
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css" rel="stylesheet">
 
 <style>
@@ -30,6 +30,7 @@
   --purple: #a78bfa;
   --blue: #60a5fa;
   --gold: #fbbf24;
+  --pink: #f472b6;
 }
 
 * { box-sizing: border-box; }
@@ -44,30 +45,36 @@ html, body {
   overflow-x: hidden;
 }
 
+#bgCanvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   background-image: 
-    linear-gradient(rgba(45, 212, 191, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(45, 212, 191, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(45, 212, 191, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(45, 212, 191, 0.04) 1px, transparent 1px);
   background-size: 50px 50px;
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
 }
 
 body::after {
   content: '';
   position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
   background: 
     radial-gradient(circle at 20% 30%, rgba(45, 212, 191, 0.08), transparent 40%),
     radial-gradient(circle at 80% 70%, rgba(167, 139, 250, 0.06), transparent 40%);
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
   animation: bgFloat 20s ease-in-out infinite;
 }
 
@@ -76,12 +83,70 @@ body::after {
   50% { transform: translate(-5%, 5%); }
 }
 
-.container-wrap { position: relative; z-index: 1; }
+.container-wrap { position: relative; z-index: 2; }
 
+/* PRELOADER */
+.preloader {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-primary);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.6s, visibility 0.6s;
+}
+
+.preloader.hidden { opacity: 0; visibility: hidden; }
+
+.preloader-logo {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.preloader-bar {
+  width: 200px;
+  height: 3px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.preloader-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+  animation: loading 1.2s ease-in-out infinite;
+}
+
+@keyframes loading {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.preloader-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-top: 1rem;
+}
+
+/* HEADER */
 .app-header {
   border-bottom: 1px solid var(--border-color);
-  padding: 1rem 0;
-  background: rgba(10, 14, 26, 0.85);
+  padding: 0.85rem 0;
+  background: rgba(10, 14, 26, 0.92);
   backdrop-filter: blur(20px);
   position: sticky;
   top: 0;
@@ -108,7 +173,7 @@ body::after {
 
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(1.2); }
+  50% { opacity: 0.5; transform: scale(1.3); }
 }
 
 .brand-text { color: var(--text-primary); }
@@ -126,6 +191,13 @@ body::after {
   align-items: center;
   gap: 0.4rem;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.live-badge.offline {
+  background: var(--red-glow);
+  border-color: var(--red);
+  color: var(--red);
 }
 
 .live-dot {
@@ -135,13 +207,134 @@ body::after {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
+.live-badge.offline .live-dot { background: var(--red); }
+
 .market-time {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.85rem;
   color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
+/* ============================================
+   LIVE TICKER BAR — Real-time scrolling rates
+============================================ */
+.ticker-bar {
+  background: linear-gradient(90deg, var(--bg-secondary), var(--bg-card), var(--bg-secondary));
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.65rem 0;
+  overflow: hidden;
+  position: relative;
+  z-index: 99;
+  position: sticky;
+  top: 64px;
+  backdrop-filter: blur(20px);
+}
+
+.ticker-bar::before,
+.ticker-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.ticker-bar::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg-secondary), transparent);
+}
+
+.ticker-bar::after {
+  right: 0;
+  background: linear-gradient(-90deg, var(--bg-secondary), transparent);
+}
+
+.ticker-track {
+  display: flex;
+  gap: 2.5rem;
+  white-space: nowrap;
+  animation: ticker 60s linear infinite;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  width: max-content;
+}
+
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+  cursor: default;
+}
+
+.ticker-item:hover {
+  background: rgba(45, 212, 191, 0.06);
+}
+
+.ticker-flag { font-size: 1rem; line-height: 1; }
+.ticker-pair { color: var(--text-secondary); font-weight: 500; }
+.ticker-price { 
+  color: var(--text-primary); 
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s;
+}
+.ticker-change {
+  font-weight: 700;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.ticker-change.up { color: var(--green); }
+.ticker-change.down { color: var(--red); }
+.ticker-divider { color: var(--text-muted); opacity: 0.4; }
+
+@keyframes priceFlash {
+  0%, 100% { background: transparent; }
+  50% { background: currentColor; }
+}
+
+.ticker-price.flash-up { color: var(--green); animation: tickFlash 0.6s ease; }
+.ticker-price.flash-down { color: var(--red); animation: tickFlash 0.6s ease; }
+
+@keyframes tickFlash {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* HERO */
 .hero { padding: 3rem 0 2rem; }
+
+.fade-in {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.25s; }
+.delay-3 { animation-delay: 0.4s; }
+.delay-4 { animation-delay: 0.55s; }
+.delay-5 { animation-delay: 0.7s; }
 
 .hero-eyebrow {
   font-family: 'JetBrains Mono', monospace;
@@ -150,18 +343,50 @@ body::after {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   margin-bottom: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
+
+.eyebrow-line {
+  display: inline-block;
+  width: 40px;
+  height: 1px;
+  background: var(--teal);
+  animation: lineGrow 1s ease-out 0.3s both;
+}
+
+@keyframes lineGrow { from { width: 0; } to { width: 40px; } }
 
 .hero-title {
   font-family: 'Instrument Serif', serif;
-  font-size: clamp(2.2rem, 5vw, 3.8rem);
+  font-size: clamp(2.2rem, 5vw, 4rem);
   line-height: 1;
   letter-spacing: -0.02em;
   font-weight: 400;
   margin-bottom: 1rem;
 }
 
-.hero-title em { font-style: italic; color: var(--teal); }
+.hero-title em {
+  font-style: italic;
+  color: var(--teal);
+  position: relative;
+  display: inline-block;
+}
+
+.hero-title em::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 100%; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+  animation: underline 2s ease-in-out 1s infinite;
+}
+
+@keyframes underline {
+  0%, 100% { transform: scaleX(0.3); opacity: 0.5; }
+  50% { transform: scaleX(1); opacity: 1; }
+}
 
 .hero-sub {
   color: var(--text-secondary);
@@ -170,6 +395,129 @@ body::after {
   line-height: 1.6;
 }
 
+.hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 1rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.hero-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.hero-meta-item i { color: var(--teal); }
+
+/* STATS BAR */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s, border-color 0.3s;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--teal);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 2px;
+  background: linear-gradient(90deg, var(--teal), var(--purple));
+  transform: translateX(-100%);
+  transition: transform 0.6s;
+}
+
+.stat-card:hover::before { transform: translateX(0); }
+
+.stat-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.stat-icon.green { background: var(--green-glow); color: var(--green); }
+.stat-icon.teal { background: rgba(45, 212, 191, 0.15); color: var(--teal); }
+.stat-icon.purple { background: rgba(167, 139, 250, 0.15); color: var(--purple); }
+.stat-icon.gold { background: rgba(251, 191, 36, 0.15); color: var(--gold); }
+
+.stat-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.stat-spark {
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 80px; height: 30px;
+  opacity: 0.4;
+}
+
+/* DATA SOURCE BANNER */
+.data-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(45, 212, 191, 0.08);
+  border: 1px solid rgba(45, 212, 191, 0.25);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--teal);
+  margin-bottom: 1rem;
+  letter-spacing: 0.05em;
+}
+
+.data-source.error {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--yellow);
+}
+
+/* BUDGET PANEL */
 .budget-panel {
   background: linear-gradient(135deg, var(--bg-card), rgba(45, 212, 191, 0.06));
   border: 1px solid var(--border-color);
@@ -187,6 +535,12 @@ body::after {
   width: 300px; height: 300px;
   background: radial-gradient(circle, rgba(45, 212, 191, 0.15), transparent 70%);
   pointer-events: none;
+  animation: orbFloat 8s ease-in-out infinite;
+}
+
+@keyframes orbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-30px, 30px) scale(1.1); }
 }
 
 .budget-header {
@@ -208,22 +562,17 @@ body::after {
   font-size: 1.4rem;
   color: white;
   box-shadow: 0 4px 20px rgba(45, 212, 191, 0.4);
+  animation: iconFloat 3s ease-in-out infinite;
+}
+
+@keyframes iconFloat {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-3px) rotate(-3deg); }
 }
 
 .budget-title-block { flex: 1; }
-
-.budget-title {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-  font-size: 1rem;
-  letter-spacing: -0.01em;
-}
-
-.budget-subtitle {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  margin-top: 0.15rem;
-}
+.budget-title { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1rem; letter-spacing: -0.01em; }
+.budget-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem; }
 
 .budget-input-row {
   display: flex;
@@ -232,7 +581,7 @@ body::after {
   border-radius: 10px;
   overflow: hidden;
   border: 2px solid transparent;
-  transition: border-color 0.3s;
+  transition: border-color 0.3s, box-shadow 0.3s;
   position: relative;
   z-index: 1;
 }
@@ -267,6 +616,7 @@ body::after {
   letter-spacing: -0.01em;
   width: 100%;
   min-width: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .budget-input-row .label-suffix {
@@ -301,15 +651,20 @@ body::after {
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.preset-btn:hover { border-color: var(--teal); color: var(--teal); }
+.preset-btn:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+  transform: translateY(-2px);
+}
 
 .preset-btn.active {
   background: var(--teal);
   color: var(--bg-primary);
   border-color: var(--teal);
+  box-shadow: 0 4px 16px rgba(45, 212, 191, 0.4);
 }
 
 .section-title {
@@ -342,6 +697,227 @@ body::after {
   letter-spacing: 0;
 }
 
+.horizon-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.horizon-tab {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.horizon-tab:hover {
+  border-color: var(--teal);
+  color: var(--text-primary);
+  transform: translateY(-2px);
+}
+
+.horizon-tab.active {
+  background: linear-gradient(135deg, var(--teal), var(--purple));
+  color: var(--bg-primary);
+  border-color: transparent;
+  box-shadow: 0 4px 16px rgba(45, 212, 191, 0.3);
+}
+
+.horizon-tab .horizon-days { font-size: 0.7rem; opacity: 0.7; font-weight: 500; }
+
+/* BEST PICK */
+.best-pick-card {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(45, 212, 191, 0.08));
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 14px;
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.best-pick-card::before {
+  content: '';
+  position: absolute;
+  top: -80px; right: -80px;
+  width: 250px; height: 250px;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.18), transparent 70%);
+  pointer-events: none;
+  animation: orbFloat 6s ease-in-out infinite;
+}
+
+.best-pick-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, transparent 30%, rgba(251, 191, 36, 0.1) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: shine 4s ease-in-out infinite;
+}
+
+@keyframes shine {
+  0%, 100% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+}
+
+.best-pick-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--gold);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+.trophy-bounce {
+  animation: trophyBounce 2s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes trophyBounce {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  25% { transform: translateY(-3px) rotate(-5deg); }
+  75% { transform: translateY(-3px) rotate(5deg); }
+}
+
+.best-pick-content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 2;
+}
+
+.best-pick-flag {
+  font-size: 3.2rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(251, 191, 36, 0.4));
+  animation: flagWave 3s ease-in-out infinite;
+}
+
+@keyframes flagWave {
+  0%, 100% { transform: rotate(0) scale(1); }
+  25% { transform: rotate(-5deg) scale(1.05); }
+  75% { transform: rotate(5deg) scale(1.05); }
+}
+
+.best-pick-text { flex: 1; min-width: 200px; }
+
+.best-pick-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: 2.2rem;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.best-pick-title em { font-style: italic; color: var(--gold); }
+
+.best-pick-desc {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-top: 0.5rem;
+}
+
+.best-pick-numbers { text-align: right; font-family: 'JetBrains Mono', monospace; }
+
+.best-pick-profit {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--green);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+.best-pick-pct {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--green);
+  margin-top: 0.4rem;
+}
+
+/* COMPARISON CHART */
+.comparison-chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.comparison-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.comparison-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.chart-tabs {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--bg-tertiary);
+  padding: 0.25rem;
+  border-radius: 6px;
+}
+
+.chart-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chart-tab:hover { color: var(--text-primary); }
+
+.chart-tab.active {
+  background: var(--teal);
+  color: var(--bg-primary);
+}
+
+.comparison-chart-container {
+  position: relative;
+  height: 320px;
+}
+
+/* RANKING TABLE */
 .ranking-table {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -356,7 +932,7 @@ body::after {
   padding: 1rem 1.25rem;
   align-items: center;
   border-bottom: 1px solid var(--border-color);
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   position: relative;
   overflow: hidden;
@@ -373,7 +949,19 @@ body::after {
   font-weight: 600;
 }
 
-.ranking-row.header:hover { background: var(--bg-secondary); }
+.ranking-row.header:hover { background: var(--bg-secondary); transform: none; }
+
+.ranking-row:not(.header)::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--teal);
+  transform: scaleY(0);
+  transition: transform 0.3s;
+}
+
+.ranking-row:not(.header):hover::before { transform: scaleY(1); }
 
 .ranking-row:not(.header):hover {
   background: rgba(45, 212, 191, 0.04);
@@ -381,6 +969,13 @@ body::after {
 }
 
 .ranking-row:last-child { border-bottom: none; }
+
+.ranking-row.row-enter { animation: rowEnter 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards; }
+
+@keyframes rowEnter {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
 
 .rank-position {
   font-family: 'Instrument Serif', serif;
@@ -395,36 +990,30 @@ body::after {
 .ranking-row.top-rank .rank-position {
   color: var(--gold);
   text-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+  animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% { text-shadow: 0 0 10px rgba(251, 191, 36, 0.4); }
+  50% { text-shadow: 0 0 25px rgba(251, 191, 36, 0.7); }
 }
 
 .ranking-row.rank-2 .rank-position { color: #cbd5e1; }
 .ranking-row.rank-3 .rank-position { color: #d97706; }
 
-.rank-asset {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-}
+.rank-asset { display: flex; align-items: center; gap: 0.85rem; }
 
-.rank-flag { font-size: 1.8rem; line-height: 1; }
+.rank-flag { font-size: 1.8rem; line-height: 1; transition: transform 0.3s; }
+.ranking-row:hover .rank-flag { transform: scale(1.15) rotate(-5deg); }
 
-.rank-pair-name {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-  font-size: 0.95rem;
-  letter-spacing: -0.01em;
-}
-
-.rank-pair-sub {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  margin-top: 0.15rem;
-}
+.rank-pair-name { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.95rem; letter-spacing: -0.01em; }
+.rank-pair-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; font-family: 'JetBrains Mono', monospace; }
 
 .rank-current, .rank-target {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.95rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .rank-target { color: var(--teal); }
@@ -442,6 +1031,7 @@ body::after {
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
 }
 
 .rank-final-profit {
@@ -469,86 +1059,24 @@ body::after {
 .profit-pill.up { background: var(--green-glow); color: var(--green); }
 .profit-pill.down { background: var(--red-glow); color: var(--red); }
 
-.best-pick-card {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(45, 212, 191, 0.08));
-  border: 1px solid rgba(251, 191, 36, 0.3);
-  border-radius: 14px;
-  padding: 1.5rem 1.75rem;
-  margin-bottom: 2rem;
-  position: relative;
-  overflow: hidden;
+.profit-pill .arrow {
+  display: inline-block;
+  animation: arrowBounce 1.5s ease-in-out infinite;
 }
 
-.best-pick-card::before {
-  content: '';
-  position: absolute;
-  top: -80px; right: -80px;
-  width: 250px; height: 250px;
-  background: radial-gradient(circle, rgba(251, 191, 36, 0.18), transparent 70%);
-  pointer-events: none;
+@keyframes arrowBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
 }
 
-.best-pick-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  color: var(--gold);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.profit-pill.down .arrow { animation-name: arrowBounceDown; }
+
+@keyframes arrowBounceDown {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
 }
 
-.best-pick-content {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-  position: relative;
-  z-index: 1;
-}
-
-.best-pick-flag { font-size: 3.2rem; line-height: 1; }
-
-.best-pick-text { flex: 1; min-width: 200px; }
-
-.best-pick-title {
-  font-family: 'Instrument Serif', serif;
-  font-size: 2.2rem;
-  font-weight: 400;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-}
-
-.best-pick-title em { font-style: italic; color: var(--gold); }
-
-.best-pick-desc {
-  color: var(--text-secondary);
-  font-size: 0.88rem;
-  line-height: 1.5;
-  margin-top: 0.5rem;
-}
-
-.best-pick-numbers {
-  text-align: right;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.best-pick-profit {
-  font-size: 2rem;
-  font-weight: 800;
-  color: var(--green);
-  line-height: 1;
-}
-
-.best-pick-pct {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--green);
-  margin-top: 0.4rem;
-}
-
+/* DETAIL PANEL */
 .detail-panel {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -556,15 +1084,16 @@ body::after {
   padding: 1.5rem;
   margin-top: 2rem;
   display: none;
+  overflow: hidden;
 }
 
 .detail-panel.active {
   display: block;
-  animation: slideUp 0.3s ease-out;
+  animation: slideUpFade 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(10px); }
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -595,7 +1124,7 @@ body::after {
   transition: all 0.2s;
 }
 
-.detail-close:hover { background: var(--red); color: white; }
+.detail-close:hover { background: var(--red); color: white; transform: rotate(90deg); }
 
 .metrics-grid {
   display: grid;
@@ -608,7 +1137,12 @@ body::after {
   background: var(--bg-tertiary);
   border-radius: 8px;
   padding: 0.85rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s;
 }
+
+.metric:hover { transform: translateY(-2px); }
 
 .metric-label {
   font-family: 'JetBrains Mono', monospace;
@@ -623,23 +1157,47 @@ body::after {
   font-family: 'JetBrains Mono', monospace;
   font-size: 1.1rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .metric-value.up { color: var(--green); }
 .metric-value.down { color: var(--red); }
 .metric-value.neutral { color: var(--text-primary); }
+.metric-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem; }
 
-.metric-sub {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  margin-top: 0.15rem;
-}
-
-.chart-container {
-  position: relative;
-  height: 280px;
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
   margin-bottom: 1.25rem;
 }
+
+@media (max-width: 768px) {
+  .charts-row { grid-template-columns: 1fr; }
+}
+
+.chart-box {
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.chart-box-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chart-container { position: relative; height: 220px; }
+.chart-container.tall { height: 280px; }
 
 .reasoning {
   background: var(--bg-tertiary);
@@ -660,20 +1218,26 @@ body::after {
   gap: 0.5rem;
 }
 
-.reasoning-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  font-size: 0.85rem;
-  line-height: 1.55;
-}
+.reasoning-list { list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.55; }
 
 .reasoning-list li {
   padding: 0.4rem 0 0.4rem 1.25rem;
   position: relative;
   color: var(--text-secondary);
   border-bottom: 1px dashed rgba(95, 100, 120, 0.2);
+  opacity: 0;
+  transform: translateX(-10px);
+  animation: reasonIn 0.4s ease-out forwards;
 }
+
+@keyframes reasonIn { to { opacity: 1; transform: translateX(0); } }
+
+.reasoning-list li:nth-child(1) { animation-delay: 0.1s; }
+.reasoning-list li:nth-child(2) { animation-delay: 0.2s; }
+.reasoning-list li:nth-child(3) { animation-delay: 0.3s; }
+.reasoning-list li:nth-child(4) { animation-delay: 0.4s; }
+.reasoning-list li:nth-child(5) { animation-delay: 0.5s; }
+.reasoning-list li:nth-child(6) { animation-delay: 0.6s; }
 
 .reasoning-list li:last-child { border-bottom: none; }
 
@@ -685,10 +1249,7 @@ body::after {
   font-weight: 700;
 }
 
-.reasoning-list li strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
+.reasoning-list li strong { color: var(--text-primary); font-weight: 600; }
 
 .confidence-block {
   background: var(--bg-tertiary);
@@ -705,7 +1266,7 @@ body::after {
   margin-bottom: 0.5rem;
 }
 
-.confidence-value { color: var(--teal); font-weight: 700; }
+.confidence-value { color: var(--teal); font-weight: 700; font-variant-numeric: tabular-nums; }
 
 .confidence-bar {
   width: 100%;
@@ -713,6 +1274,7 @@ body::after {
   background: var(--bg-secondary);
   border-radius: 4px;
   overflow: hidden;
+  position: relative;
 }
 
 .confidence-fill {
@@ -720,6 +1282,21 @@ body::after {
   background: linear-gradient(90deg, var(--teal), var(--purple));
   border-radius: 4px;
   transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.confidence-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 2s linear infinite;
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
 }
 
 .disclaimer {
@@ -745,45 +1322,10 @@ body::after {
   font-size: 0.75rem;
 }
 
-.horizon-tabs {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.horizon-tab {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  padding: 0.6rem 1rem;
-  border-radius: 8px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.horizon-tab:hover { border-color: var(--teal); color: var(--text-primary); }
-
-.horizon-tab.active {
-  background: linear-gradient(135deg, var(--teal), var(--purple));
-  color: var(--bg-primary);
-  border-color: transparent;
-  box-shadow: 0 4px 16px rgba(45, 212, 191, 0.3);
-}
-
-.horizon-tab .horizon-days {
-  font-size: 0.7rem;
-  opacity: 0.7;
-  font-weight: 500;
-}
+.footer a { color: var(--teal); text-decoration: none; }
 
 @media (max-width: 992px) {
+  .stats-bar { grid-template-columns: repeat(2, 1fr); }
   .ranking-row {
     grid-template-columns: 40px 1.5fr 1fr 100px;
     gap: 0.75rem;
@@ -801,6 +1343,8 @@ body::after {
 @media (max-width: 576px) {
   .hero { padding: 2rem 0 1.5rem; }
   .market-time { display: none; }
+  .stats-bar { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .stat-value { font-size: 1.1rem; }
   .budget-input-row { flex-direction: column; }
   .budget-input-row .currency-prefix,
   .budget-input-row .label-suffix { 
@@ -815,6 +1359,7 @@ body::after {
   }
   .best-pick-title { font-size: 1.6rem; }
   .best-pick-numbers { text-align: left; width: 100%; }
+  .ticker-bar { top: 60px; }
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -824,6 +1369,17 @@ body::after {
 </style>
 </head>
 <body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div class="preloader" id="preloader">
+  <div class="preloader-logo">
+    <span class="brand-dot"></span>
+    <span><span class="brand-text">FOREX</span><span class="brand-accent">.AI</span></span>
+  </div>
+  <div class="preloader-bar"></div>
+  <div class="preloader-text" id="preloaderText">Canlı kurlar yükleniyor...</div>
+</div>
 
 <div class="container-wrap">
 
@@ -836,21 +1392,66 @@ body::after {
         </div>
         <div class="d-flex align-items-center gap-3">
           <span class="market-time" id="marketTime">--:--:--</span>
-          <span class="live-badge"><span class="live-dot"></span>CANLI</span>
+          <span class="live-badge" id="liveBadge"><span class="live-dot"></span><span id="liveText">CANLI</span></span>
         </div>
       </div>
     </div>
   </header>
 
+  <!-- LIVE TICKER BAR -->
+  <div class="ticker-bar">
+    <div class="ticker-track" id="tickerTrack">
+      <span class="ticker-item"><span class="ticker-pair">Yükleniyor...</span></span>
+    </div>
+  </div>
+
   <main class="container-fluid px-3 px-md-5">
 
     <section class="hero">
-      <div class="hero-eyebrow">// HAFTALIK KAR TAHMİN MOTORU</div>
-      <h1 class="hero-title">Bütçeni gir, <em>en karlısını</em> seç.</h1>
-      <p class="hero-sub">TL bütçeni gir; AI motorumuz tüm dövizleri seçtiğin vadeye göre tahmin eder ve seni en çok kazandıracak olanı zirveye koyar. Her satırda alabileceğin miktarı, hedef kuru ve vade sonundaki tahmini TL değerini görürsün.</p>
+      <div class="hero-eyebrow fade-in delay-1">
+        <span class="eyebrow-line"></span>
+        AI POWERED FX TERMINAL
+      </div>
+      <h1 class="hero-title fade-in delay-2">Canlı kurlar, <em>yapay zeka</em> tahmini.</h1>
+      <p class="hero-sub fade-in delay-3">TL bütçeni gir; AI motorumuz Avrupa Merkez Bankası'ndan gelen canlı kurları analiz eder ve seni en çok kazandıracak olanı zirveye koyar.</p>
+      <div class="hero-meta fade-in delay-4">
+        <span class="hero-meta-item"><i class="bi bi-broadcast"></i> Canlı veri: <span id="lastUpdated">—</span></span>
+        <span class="hero-meta-item"><i class="bi bi-database-fill"></i> Kaynak: <span id="dataSourceName">Frankfurter API (ECB)</span></span>
+      </div>
     </section>
 
-    <div class="budget-panel">
+    <div class="stats-bar fade-in delay-3">
+      <div class="stat-card">
+        <div class="stat-icon teal"><i class="bi bi-graph-up-arrow"></i></div>
+        <div class="stat-label">EN İYİ GETİRİ</div>
+        <div class="stat-value" id="kpiBest" style="color: var(--green);">+0.00%</div>
+        <div class="stat-sub" id="kpiBestPair">—</div>
+        <svg class="stat-spark" viewBox="0 0 80 30" preserveAspectRatio="none" id="kpiSpark1"></svg>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green"><i class="bi bi-currency-exchange"></i></div>
+        <div class="stat-label">ORT. GETİRİ</div>
+        <div class="stat-value" id="kpiAvg">0.00%</div>
+        <div class="stat-sub">tüm varlıklar</div>
+        <svg class="stat-spark" viewBox="0 0 80 30" preserveAspectRatio="none" id="kpiSpark2"></svg>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple"><i class="bi bi-cpu-fill"></i></div>
+        <div class="stat-label">AI GÜVENİ</div>
+        <div class="stat-value" id="kpiConf" style="color: var(--purple);">0%</div>
+        <div class="stat-sub">model güveni</div>
+        <svg class="stat-spark" viewBox="0 0 80 30" preserveAspectRatio="none" id="kpiSpark3"></svg>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon gold"><i class="bi bi-piggy-bank-fill"></i></div>
+        <div class="stat-label">MAX KAZANÇ</div>
+        <div class="stat-value" id="kpiProfit" style="color: var(--gold);">₺0</div>
+        <div class="stat-sub" id="kpiHorizon">7 gün vade</div>
+        <svg class="stat-spark" viewBox="0 0 80 30" preserveAspectRatio="none" id="kpiSpark4"></svg>
+      </div>
+    </div>
+
+    <div class="budget-panel fade-in delay-4">
       <div class="budget-header">
         <div class="budget-icon"><i class="bi bi-wallet2"></i></div>
         <div class="budget-title-block">
@@ -873,8 +1474,8 @@ body::after {
       </div>
     </div>
 
-    <div class="section-title">Tahmin Vadesi</div>
-    <div class="horizon-tabs">
+    <div class="section-title fade-in delay-4">Tahmin Vadesi</div>
+    <div class="horizon-tabs fade-in delay-4">
       <button class="horizon-tab" data-horizon="1"><i class="bi bi-clock"></i> 1 Gün <span class="horizon-days">24s</span></button>
       <button class="horizon-tab" data-horizon="3"><i class="bi bi-calendar-event"></i> 3 Gün</button>
       <button class="horizon-tab active" data-horizon="7"><i class="bi bi-calendar-week"></i> Hafta Sonu <span class="horizon-days">7g</span></button>
@@ -882,13 +1483,16 @@ body::after {
       <button class="horizon-tab" data-horizon="30"><i class="bi bi-graph-up"></i> 1 Ay</button>
     </div>
 
-    <div class="best-pick-card" id="bestPickCard">
-      <div class="best-pick-label"><i class="bi bi-trophy-fill"></i> AI'NIN EN İYİ SEÇİMİ</div>
+    <div class="best-pick-card fade-in delay-5" id="bestPickCard">
+      <div class="best-pick-label">
+        <span class="trophy-bounce"><i class="bi bi-trophy-fill"></i></span> 
+        AI'NIN EN İYİ SEÇİMİ
+      </div>
       <div class="best-pick-content">
         <div class="best-pick-flag" id="bestPickFlag">🥇</div>
         <div class="best-pick-text">
           <div class="best-pick-title"><em id="bestPickName">—</em> ile en yüksek getiri</div>
-          <div class="best-pick-desc" id="bestPickDesc">—</div>
+          <div class="best-pick-desc" id="bestPickDesc">Veriler yükleniyor...</div>
         </div>
         <div class="best-pick-numbers">
           <div class="best-pick-profit" id="bestPickProfit">—</div>
@@ -897,11 +1501,28 @@ body::after {
       </div>
     </div>
 
-    <div class="section-title">
-      Karlılık Sıralaması
-      <span class="badge-count" id="rankingCount">8 varlık</span>
+    <div class="comparison-chart-card fade-in delay-5">
+      <div class="comparison-header">
+        <div>
+          <div class="comparison-title" id="compTitle">Karşılaştırmalı Kar Tahmini</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Bütçe ile vade sonunda elde edilecek TL — sıralı</div>
+        </div>
+        <div class="chart-tabs">
+          <button class="chart-tab active" data-charttype="bar"><i class="bi bi-bar-chart-fill"></i> Bar</button>
+          <button class="chart-tab" data-charttype="line"><i class="bi bi-graph-up"></i> Çizgi</button>
+          <button class="chart-tab" data-charttype="radar"><i class="bi bi-bullseye"></i> Radar</button>
+        </div>
+      </div>
+      <div class="comparison-chart-container">
+        <canvas id="comparisonChart"></canvas>
+      </div>
     </div>
-    <div class="ranking-table">
+
+    <div class="section-title fade-in delay-5">
+      Karlılık Sıralaması
+      <span class="badge-count" id="rankingCount">— varlık</span>
+    </div>
+    <div class="ranking-table fade-in delay-5">
       <div class="ranking-row header">
         <div>SIRA</div>
         <div>VARLIK</div>
@@ -973,8 +1594,35 @@ body::after {
         <div class="confidence-bar"><div class="confidence-fill" id="dConfFill" style="width: 0%"></div></div>
       </div>
 
-      <div class="chart-container">
-        <canvas id="detailChart"></canvas>
+      <div class="charts-row">
+        <div class="chart-box">
+          <div class="chart-box-title">
+            <i class="bi bi-graph-up" style="color: var(--teal)"></i>
+            FİYAT TAHMİN GRAFİĞİ
+          </div>
+          <div class="chart-container tall">
+            <canvas id="detailChart"></canvas>
+          </div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-box-title">
+            <i class="bi bi-bullseye" style="color: var(--purple)"></i>
+            TEKNİK GÖSTERGE PROFİLİ
+          </div>
+          <div class="chart-container tall">
+            <canvas id="radarChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-box" style="margin-bottom: 1.25rem;">
+        <div class="chart-box-title">
+          <i class="bi bi-distribute-vertical" style="color: var(--gold)"></i>
+          OLASILIK DAĞILIMI — Vade sonu fiyat tahmini
+        </div>
+        <div class="chart-container">
+          <canvas id="distributionChart"></canvas>
+        </div>
       </div>
 
       <div class="reasoning">
@@ -988,11 +1636,11 @@ body::after {
 
     <div class="disclaimer">
       <i class="bi bi-exclamation-triangle-fill"></i>
-      <strong>Yatırım danışmanlığı değildir.</strong> Bu uygulama eğitim amaçlıdır. Kurlar simüle edilmiş örnek verilerdir. AI tahminleri istatistiksel modellere dayalıdır ve gerçek piyasa hareketini garanti etmez. Geçmiş performans gelecekteki sonuçların garantisi değildir. Gerçek finansal kararlar için lisanslı bir aracı kuruma başvurun.
+      <strong>Yatırım danışmanlığı değildir.</strong> Kurlar Avrupa Merkez Bankası referans değerleridir (Frankfurter API), Bitcoin verisi CoinGecko'dan alınır. AI tahminleri istatistiksel modellere dayalıdır ve gerçek piyasa hareketini garanti etmez. Geçmiş performans gelecekteki sonuçların garantisi değildir.
     </div>
 
     <footer class="footer">
-      FOREX.AI © 2026 — Powered by neural prediction engine • <span style="color: var(--teal)">v3.3.0</span>
+      FOREX.AI © 2026 — Powered by neural prediction engine • <a href="https://frankfurter.dev/" target="_blank" rel="noopener">Frankfurter</a> + <a href="https://www.coingecko.com/" target="_blank" rel="noopener">CoinGecko</a> • <span style="color: var(--teal)">v4.0.0</span>
     </footer>
 
   </main>
@@ -1002,22 +1650,93 @@ body::after {
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <script>
-const currencies = [
-  { pair: 'USD/TRY', name: 'ABD Doları',     symbol: 'USD', flag: '🇺🇸', price: 38.5421, base: 38.50,  vol: 0.012, trend: 0.6,  desc: 'Dolar — küresel rezerv para' },
-  { pair: 'EUR/TRY', name: 'Euro',           symbol: 'EUR', flag: '🇪🇺', price: 41.8702, base: 41.85,  vol: 0.014, trend: 0.4,  desc: 'Euro — Eurozone para birimi' },
-  { pair: 'GBP/TRY', name: 'İngiliz Sterlini',symbol: 'GBP', flag: '🇬🇧', price: 49.6231, base: 49.70,  vol: 0.018, trend: -0.3, desc: 'Sterlin — İngiltere para birimi' },
-  { pair: 'JPY/TRY', name: 'Japon Yeni (100)',symbol: 'JPY', flag: '🇯🇵', price: 24.4108, base: 24.40,  vol: 0.011, trend: 0.2,  desc: 'Yen (100 birim) — güvenli liman' },
-  { pair: 'CHF/TRY', name: 'İsviçre Frangı', symbol: 'CHF', flag: '🇨🇭', price: 43.2105, base: 43.20,  vol: 0.013, trend: 0.5,  desc: 'Frank — güvenli liman parası' },
-  { pair: 'AUD/TRY', name: 'Avustralya Doları',symbol:'AUD', flag: '🇦🇺', price: 25.4380, base: 25.40,  vol: 0.016, trend: 0.1,  desc: 'Aussie — emtia kıymeti' },
-  { pair: 'XAU/TRY', name: 'Altın (Gram)',   symbol: 'GR',  flag: '🥇', price: 3284.50, base: 3270,    vol: 0.020, trend: 0.9,  desc: 'Gram altın — değer saklama' },
-  { pair: 'BTC/TRY', name: 'Bitcoin',        symbol: 'BTC', flag: '₿', price: 2598500, base: 2580000, vol: 0.045, trend: 1.5,  desc: 'Bitcoin — kripto öncü' }
+/* ============================================
+   PARTICLE BACKGROUND
+============================================ */
+const bgCanvas = document.getElementById('bgCanvas');
+const bgCtx = bgCanvas.getContext('2d');
+let particles = [];
+
+function resizeBg() {
+  bgCanvas.width = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+}
+resizeBg();
+window.addEventListener('resize', resizeBg);
+
+function createParticles() {
+  particles = [];
+  const count = window.innerWidth < 768 ? 30 : 60;
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * bgCanvas.width,
+      y: Math.random() * bgCanvas.height,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 1.5 + 0.5,
+      opacity: Math.random() * 0.5 + 0.1
+    });
+  }
+}
+createParticles();
+window.addEventListener('resize', createParticles);
+
+function animateBg() {
+  bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    if (p.x < 0 || p.x > bgCanvas.width) p.vx *= -1;
+    if (p.y < 0 || p.y > bgCanvas.height) p.vy *= -1;
+    bgCtx.beginPath();
+    bgCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    bgCtx.fillStyle = `rgba(45, 212, 191, ${p.opacity})`;
+    bgCtx.fill();
+  });
+  for (let i = 0; i < particles.length; i++) {
+    for (let j = i + 1; j < particles.length; j++) {
+      const dx = particles[i].x - particles[j].x;
+      const dy = particles[i].y - particles[j].y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d < 120) {
+        bgCtx.beginPath();
+        bgCtx.moveTo(particles[i].x, particles[i].y);
+        bgCtx.lineTo(particles[j].x, particles[j].y);
+        bgCtx.strokeStyle = `rgba(45, 212, 191, ${(1 - d / 120) * 0.15})`;
+        bgCtx.lineWidth = 0.5;
+        bgCtx.stroke();
+      }
+    }
+  }
+  requestAnimationFrame(animateBg);
+}
+animateBg();
+
+/* ============================================
+   CURRENCY DEFINITIONS — Live data is fetched
+============================================ */
+const currencyDefs = [
+  { code: 'USD', pair: 'USD/TRY', name: 'ABD Doları',     symbol: 'USD', flag: '🇺🇸', vol: 0.012, trend: 0.6,  desc: 'Dolar — küresel rezerv para',     fallback: 38.50 },
+  { code: 'EUR', pair: 'EUR/TRY', name: 'Euro',           symbol: 'EUR', flag: '🇪🇺', vol: 0.014, trend: 0.4,  desc: 'Euro — Eurozone para birimi',     fallback: 41.85 },
+  { code: 'GBP', pair: 'GBP/TRY', name: 'İngiliz Sterlini',symbol: 'GBP', flag: '🇬🇧', vol: 0.018, trend: -0.3, desc: 'Sterlin — İngiltere para birimi', fallback: 49.70 },
+  { code: 'JPY', pair: 'JPY/TRY', name: 'Japon Yeni (100)',symbol: 'JPY', flag: '🇯🇵', vol: 0.011, trend: 0.2,  desc: 'Yen — güvenli liman',             fallback: 24.40, multiplier: 100 },
+  { code: 'CHF', pair: 'CHF/TRY', name: 'İsviçre Frangı', symbol: 'CHF', flag: '🇨🇭', vol: 0.013, trend: 0.5,  desc: 'Frank — güvenli liman',           fallback: 43.20 },
+  { code: 'AUD', pair: 'AUD/TRY', name: 'Avustralya Doları',symbol:'AUD', flag: '🇦🇺', vol: 0.016, trend: 0.1,  desc: 'Aussie — emtia kıymeti',         fallback: 25.40 },
+  { code: 'CAD', pair: 'CAD/TRY', name: 'Kanada Doları',  symbol: 'CAD', flag: '🇨🇦', vol: 0.014, trend: 0.3,  desc: 'Loonie — petrol bağımlı',         fallback: 28.20 },
+  { code: 'BTC', pair: 'BTC/TRY', name: 'Bitcoin',        symbol: 'BTC', flag: '₿',  vol: 0.045, trend: 1.5,  desc: 'Bitcoin — kripto öncü',           fallback: 2598500, isCrypto: true }
 ];
 
+let currencies = []; // populated from API
 let budget = 100000;
 let horizon = 7;
-let detailChart = null;
+let detailChart = null, radarChart = null, distributionChart = null, comparisonChart = null;
 let activeDetail = null;
+let comparisonChartType = 'bar';
+let prevPrices = {}; // for tick flashing
 
+/* ============================================
+   CLOCK
+============================================ */
 function updateClock() {
   const now = new Date();
   const t = now.toLocaleTimeString('tr-TR', { hour12: false });
@@ -1026,9 +1745,10 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-function fmtTL(n) {
-  return '₺' + n.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-}
+/* ============================================
+   FORMATTERS
+============================================ */
+function fmtTL(n) { return '₺' + n.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 function fmtTLshort(n) {
   if (Math.abs(n) >= 1000000) return '₺' + (n/1000000).toFixed(2) + 'M';
   if (Math.abs(n) >= 1000) return '₺' + (n/1000).toFixed(1) + 'K';
@@ -1046,6 +1766,90 @@ function fmtAmount(n, symbol) {
   return n.toLocaleString('tr-TR', {maximumFractionDigits: 0}) + ' ' + symbol;
 }
 
+function animateValue(el, start, end, duration, formatter) {
+  const startTime = performance.now();
+  function update(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = start + (end - start) * eased;
+    el.textContent = formatter ? formatter(current) : current.toFixed(2);
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+/* ============================================
+   LIVE API FETCHING
+============================================ */
+let isLiveMode = false;
+
+async function fetchLiveRates() {
+  try {
+    // Frankfurter API: get all rates with USD as base, then convert to TRY
+    // Better approach: get TRY directly as quote
+    const codes = currencyDefs.filter(c => !c.isCrypto).map(c => c.code).join(',');
+    const url = `https://api.frankfurter.dev/v1/latest?from=TRY&symbols=${codes}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('API failed');
+    const data = await response.json();
+    
+    // data.rates is { USD: 0.026, EUR: 0.024, ... } meaning 1 TRY = X currency
+    // We need the inverse: how many TRY per 1 unit of foreign currency
+    const rates = {};
+    for (const code of Object.keys(data.rates)) {
+      rates[code] = 1 / data.rates[code];
+    }
+    
+    // Try to fetch BTC from CoinGecko
+    try {
+      const btcResponse = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=try');
+      if (btcResponse.ok) {
+        const btcData = await btcResponse.json();
+        rates['BTC'] = btcData.bitcoin.try;
+      }
+    } catch (e) {
+      console.warn('CoinGecko fetch failed:', e);
+    }
+    
+    return { rates, date: data.date, success: true };
+  } catch (err) {
+    console.warn('Live API failed, using fallback:', err);
+    return { rates: {}, success: false };
+  }
+}
+
+function applyRates(rates, date) {
+  currencies = currencyDefs.map(def => {
+    let price = rates[def.code];
+    if (!price) {
+      // fallback
+      price = def.fallback;
+    }
+    // For JPY, multiply since it's quoted per 100
+    if (def.multiplier) price = price * def.multiplier;
+    
+    return {
+      ...def,
+      price: parseFloat(price.toFixed(4)),
+      base: parseFloat(price.toFixed(4))
+    };
+  });
+  
+  if (date) {
+    const d = new Date(date);
+    document.getElementById('lastUpdated').textContent = d.toLocaleDateString('tr-TR') + ' (ECB)';
+  } else {
+    document.getElementById('lastUpdated').textContent = 'Yedek veri';
+    document.getElementById('liveBadge').classList.add('offline');
+    document.getElementById('liveText').textContent = 'OFFLINE';
+  }
+}
+
+/* ============================================
+   PREDICTION ENGINE
+============================================ */
 function predict(currency, days) {
   const c = currency;
   const dailyDrift = (c.trend / 100) * 0.7;
@@ -1085,7 +1889,235 @@ function computeRankings() {
   return results;
 }
 
-function renderRankings() {
+/* ============================================
+   TICKER BAR
+============================================ */
+function renderTicker() {
+  const track = document.getElementById('tickerTrack');
+  
+  const buildItems = () => currencies.map(c => {
+    const prev = prevPrices[c.code] ?? c.price;
+    const change = ((c.price - c.base) / c.base) * 100;
+    const cls = change >= 0 ? 'up' : 'down';
+    const arrow = change >= 0 ? '▲' : '▼';
+    const flashCls = c.price > prev ? 'flash-up' : c.price < prev ? 'flash-down' : '';
+    
+    return `<span class="ticker-item">
+      <span class="ticker-flag">${c.flag}</span>
+      <span class="ticker-pair">${c.pair}</span>
+      <span class="ticker-price ${flashCls}" data-code="${c.code}">${fmtPrice(c.price)}</span>
+      <span class="ticker-change ${cls}">${arrow} ${Math.abs(change).toFixed(2)}%</span>
+      <span class="ticker-divider">│</span>
+    </span>`;
+  }).join('');
+  
+  // Duplicate for seamless infinite scroll
+  track.innerHTML = buildItems() + buildItems();
+  
+  // Update prevPrices
+  currencies.forEach(c => { prevPrices[c.code] = c.price; });
+}
+
+/* ============================================
+   SPARKLINES
+============================================ */
+function generateSparklinePath(trend) {
+  const points = [];
+  let y = 15;
+  for (let x = 0; x <= 80; x += 4) {
+    y += (Math.random() - 0.5 + trend * 0.05) * 4;
+    y = Math.max(3, Math.min(27, y));
+    points.push(`${x},${y.toFixed(1)}`);
+  }
+  return points.join(' ');
+}
+
+function renderSparklines(results) {
+  const colors = ['var(--green)', 'var(--teal)', 'var(--purple)', 'var(--gold)'];
+  const ids = ['kpiSpark1', 'kpiSpark2', 'kpiSpark3', 'kpiSpark4'];
+  ids.forEach((id, i) => {
+    const svg = document.getElementById(id);
+    if (!svg) return;
+    const trend = results[0]?.profitPct > 0 ? 0.5 : -0.5;
+    svg.innerHTML = `<polyline points="${generateSparklinePath(trend + i * 0.1)}" fill="none" stroke="${colors[i]}" stroke-width="1.5" stroke-linecap="round"/>`;
+  });
+}
+
+/* ============================================
+   KPI BAR
+============================================ */
+let prevKPI = { best: 0, avg: 0, conf: 0, profit: 0 };
+
+function updateKPIs(results) {
+  if (!results.length) return;
+  const best = results[0];
+  const avgPct = results.reduce((sum, r) => sum + r.profitPct, 0) / results.length;
+  const avgConf = results.reduce((sum, r) => sum + r.prediction.confidence, 0) / results.length;
+  const maxProfit = best.profit;
+
+  animateValue(document.getElementById('kpiBest'), prevKPI.best, best.profitPct, 800, v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%');
+  document.getElementById('kpiBest').style.color = best.profitPct >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('kpiBestPair').textContent = best.currency.flag + ' ' + best.currency.pair;
+
+  animateValue(document.getElementById('kpiAvg'), prevKPI.avg, avgPct, 800, v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%');
+  document.getElementById('kpiAvg').style.color = avgPct >= 0 ? 'var(--green)' : 'var(--red)';
+
+  animateValue(document.getElementById('kpiConf'), prevKPI.conf, avgConf, 800, v => v.toFixed(0) + '%');
+  animateValue(document.getElementById('kpiProfit'), prevKPI.profit, maxProfit, 1000, v => (v >= 0 ? '+' : '') + fmtTLshort(v));
+  document.getElementById('kpiProfit').style.color = maxProfit >= 0 ? 'var(--gold)' : 'var(--red)';
+  document.getElementById('kpiHorizon').textContent = horizon + ' gün vade';
+
+  prevKPI = { best: best.profitPct, avg: avgPct, conf: avgConf, profit: maxProfit };
+  renderSparklines(results);
+}
+
+/* ============================================
+   COMPARISON CHART
+============================================ */
+function renderComparisonChart(results) {
+  const labels = results.map(r => r.currency.pair);
+  const profits = results.map(r => r.profit);
+  const pcts = results.map(r => r.profitPct);
+  const confidences = results.map(r => r.prediction.confidence);
+
+  if (comparisonChart) comparisonChart.destroy();
+
+  const ctx = document.getElementById('comparisonChart').getContext('2d');
+
+  if (comparisonChartType === 'bar') {
+    comparisonChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Vade Sonu Kar/Zarar (₺)',
+          data: profits,
+          backgroundColor: profits.map(p => p >= 0 ? 'rgba(16, 185, 129, 0.7)' : 'rgba(239, 68, 68, 0.7)'),
+          borderColor: profits.map(p => p >= 0 ? '#10b981' : '#ef4444'),
+          borderWidth: 2,
+          borderRadius: 8,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 1000, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a2233', borderColor: '#2dd4bf', borderWidth: 1, padding: 12,
+            titleFont: { family: 'JetBrains Mono', size: 12 },
+            bodyFont: { family: 'JetBrains Mono', size: 13, weight: '700' },
+            titleColor: '#8b95a8', bodyColor: '#e6edf3', displayColors: false,
+            callbacks: {
+              label: ctx => {
+                const r = results[ctx.dataIndex];
+                return [
+                  'Kar/Zarar: ' + (r.profit >= 0 ? '+' : '') + fmtTL(r.profit),
+                  'Getiri: ' + (r.profitPct >= 0 ? '+' : '') + r.profitPct.toFixed(2) + '%',
+                  'Güven: %' + r.prediction.confidence.toFixed(0)
+                ];
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#8b95a8', font: { family: 'JetBrains Mono', size: 11, weight: '600' } },
+          },
+          y: {
+            grid: { color: 'rgba(31, 41, 55, 0.5)' },
+            ticks: { color: '#5a6478', font: { family: 'JetBrains Mono', size: 10 }, callback: v => fmtTLshort(v) },
+            border: { display: false }
+          }
+        }
+      }
+    });
+  } else if (comparisonChartType === 'line') {
+    comparisonChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Getiri %', data: pcts,
+            borderColor: '#2dd4bf',
+            backgroundColor: ctx2 => {
+              const g = ctx2.chart.ctx.createLinearGradient(0, 0, 0, 320);
+              g.addColorStop(0, 'rgba(45, 212, 191, 0.4)');
+              g.addColorStop(1, 'rgba(45, 212, 191, 0)');
+              return g;
+            },
+            borderWidth: 3, fill: true, tension: 0.4,
+            pointRadius: 5, pointBackgroundColor: '#2dd4bf', pointBorderColor: '#fff', pointBorderWidth: 2,
+            pointHoverRadius: 8, yAxisID: 'y'
+          },
+          {
+            label: 'AI Güveni %', data: confidences,
+            borderColor: '#a78bfa', backgroundColor: 'transparent',
+            borderWidth: 2, borderDash: [5, 5], tension: 0.4,
+            pointRadius: 4, pointBackgroundColor: '#a78bfa', yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 1200, easing: 'easeOutQuart' },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', align: 'end', labels: { color: '#8b95a8', font: { family: 'JetBrains Mono', size: 11 }, usePointStyle: true, boxWidth: 8 } },
+          tooltip: { backgroundColor: '#1a2233', borderColor: '#2dd4bf', borderWidth: 1, padding: 12, titleFont: { family: 'JetBrains Mono', size: 11 }, bodyFont: { family: 'JetBrains Mono', size: 12, weight: '700' }, titleColor: '#8b95a8', bodyColor: '#e6edf3' }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#8b95a8', font: { family: 'JetBrains Mono', size: 11, weight: '600' } } },
+          y: { position: 'left', grid: { color: 'rgba(31, 41, 55, 0.5)' }, ticks: { color: '#2dd4bf', font: { family: 'JetBrains Mono', size: 10 }, callback: v => v.toFixed(1) + '%' }, border: { display: false } },
+          y1: { position: 'right', grid: { display: false }, ticks: { color: '#a78bfa', font: { family: 'JetBrains Mono', size: 10 }, callback: v => v.toFixed(0) + '%' }, border: { display: false }, min: 0, max: 100 }
+        }
+      }
+    });
+  } else if (comparisonChartType === 'radar') {
+    comparisonChart = new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Getiri Skoru', data: pcts.map(p => Math.max(0, p + 5)),
+            borderColor: '#2dd4bf', backgroundColor: 'rgba(45, 212, 191, 0.2)',
+            borderWidth: 2, pointBackgroundColor: '#2dd4bf', pointBorderColor: '#fff', pointRadius: 4,
+          },
+          {
+            label: 'AI Güveni', data: confidences.map(c => c / 10),
+            borderColor: '#a78bfa', backgroundColor: 'rgba(167, 139, 250, 0.15)',
+            borderWidth: 2, pointBackgroundColor: '#a78bfa', pointBorderColor: '#fff', pointRadius: 4,
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 1500, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { position: 'top', align: 'end', labels: { color: '#8b95a8', font: { family: 'JetBrains Mono', size: 11 }, usePointStyle: true } },
+          tooltip: { backgroundColor: '#1a2233', borderColor: '#2dd4bf', borderWidth: 1, padding: 12, titleFont: { family: 'JetBrains Mono', size: 11 }, bodyFont: { family: 'JetBrains Mono', size: 12, weight: '700' }, titleColor: '#8b95a8', bodyColor: '#e6edf3' }
+        },
+        scales: {
+          r: {
+            angleLines: { color: 'rgba(31, 41, 55, 0.8)' },
+            grid: { color: 'rgba(31, 41, 55, 0.6)' },
+            pointLabels: { color: '#e6edf3', font: { family: 'JetBrains Mono', size: 11, weight: '600' } },
+            ticks: { color: '#5a6478', backdropColor: 'transparent', font: { family: 'JetBrains Mono', size: 9 } }
+          }
+        }
+      }
+    });
+  }
+}
+
+/* ============================================
+   RANKING LIST
+============================================ */
+function renderRankings(animate = true) {
   const results = computeRankings();
   const list = document.getElementById('rankingList');
   document.getElementById('rankingCount').textContent = `${results.length} varlık`;
@@ -1096,9 +2128,10 @@ function renderRankings() {
     const rankClass = pos === 1 ? 'top-rank' : pos === 2 ? 'rank-2' : pos === 3 ? 'rank-3' : '';
     const profitClass = r.profit >= 0 ? 'up' : 'down';
     const arrow = r.profit >= 0 ? '▲' : '▼';
+    const enterClass = animate ? 'row-enter' : '';
 
     return `
-      <div class="ranking-row ${rankClass}" data-pair="${c.pair}">
+      <div class="ranking-row ${rankClass} ${enterClass}" data-pair="${c.pair}" style="animation-delay: ${i * 60}ms;">
         <div class="rank-position">${pos}</div>
         <div class="rank-asset">
           <span class="rank-flag">${c.flag}</span>
@@ -1109,7 +2142,7 @@ function renderRankings() {
         </div>
         <div class="col-current">
           <div class="rank-current">${fmtPrice(c.price)}</div>
-          <div class="rank-current-sub">şimdi</div>
+          <div class="rank-current-sub">canlı</div>
         </div>
         <div class="col-target">
           <div class="rank-target">${fmtPrice(r.prediction.targetPrice)}</div>
@@ -1119,7 +2152,7 @@ function renderRankings() {
           <div class="rank-final-amount">${fmtTL(r.finalTL)}</div>
           <div class="rank-final-profit ${profitClass}">${r.profit >= 0 ? '+' : ''}${fmtTLshort(r.profit)}</div>
         </div>
-        <div class="profit-pill ${profitClass}">${arrow} ${Math.abs(r.profitPct).toFixed(2)}%</div>
+        <div class="profit-pill ${profitClass}"><span class="arrow">${arrow}</span> ${Math.abs(r.profitPct).toFixed(2)}%</div>
       </div>
     `;
   }).join('');
@@ -1129,8 +2162,14 @@ function renderRankings() {
   });
 
   renderBestPick(results[0]);
+  updateKPIs(results);
+  renderComparisonChart(results);
+  renderTicker();
 }
 
+/* ============================================
+   BEST PICK
+============================================ */
 function renderBestPick(top) {
   if (!top) return;
   const c = top.currency;
@@ -1148,7 +2187,7 @@ function renderBestPick(top) {
     document.getElementById('bestPickPct').style.color = 'var(--green)';
   } else {
     document.getElementById('bestPickDesc').innerHTML = 
-      `Şu an piyasada ${horizonLabel} için tüm dövizlerde düşüş bekleniyor. <strong style="color:var(--text-primary)">${c.pair}</strong> en az kaybettirecek seçenek. Bu vadede pozisyon almamak da bir stratejidir.`;
+      `Şu an piyasada ${horizonLabel} için tüm dövizlerde düşüş bekleniyor. <strong style="color:var(--text-primary)">${c.pair}</strong> en az kaybettirecek seçenek.`;
     document.getElementById('bestPickProfit').textContent = fmtTL(top.profit);
     document.getElementById('bestPickProfit').style.color = 'var(--red)';
     document.getElementById('bestPickPct').textContent = top.profitPct.toFixed(2) + '%';
@@ -1156,74 +2195,9 @@ function renderBestPick(top) {
   }
 }
 
-function showDetail(pair) {
-  const c = currencies.find(x => x.pair === pair);
-  if (!c) return;
-  activeDetail = pair;
-
-  const pred = predict(c, horizon);
-  const amountBought = budget / c.price;
-  const finalTL = amountBought * pred.targetPrice;
-  const profit = finalTL - budget;
-  const profitPct = (profit / budget) * 100;
-
-  document.getElementById('detailTitle').textContent = `${c.flag} ${c.pair} — ${c.name}`;
-  document.getElementById('detailSub').textContent = c.desc;
-
-  document.getElementById('dCurrent').textContent = fmtPrice(c.price);
-  document.getElementById('dCurrentSub').textContent = '1 ' + c.symbol + ' = ' + fmtPrice(c.price) + ' TL';
-
-  document.getElementById('dTarget').textContent = fmtPrice(pred.targetPrice);
-  document.getElementById('dTarget').className = 'metric-value ' + (pred.pctChange >= 0 ? 'up' : 'down');
-  document.getElementById('dTargetSub').textContent = (pred.pctChange >= 0 ? '+' : '') + pred.pctChange.toFixed(2) + '% (' + horizon + ' gün)';
-
-  document.getElementById('dAmount').textContent = fmtAmount(amountBought, c.symbol);
-
-  document.getElementById('dFinal').textContent = fmtTL(finalTL);
-  document.getElementById('dFinal').className = 'metric-value ' + (profit >= 0 ? 'up' : 'down');
-
-  document.getElementById('dRSI').textContent = pred.rsi.toFixed(1);
-  document.getElementById('dRSI').className = 'metric-value ' + (pred.rsi > 50 ? 'up' : 'down');
-  document.getElementById('dRSISub').textContent = pred.rsi > 70 ? 'Aşırı alım' : pred.rsi < 30 ? 'Aşırı satım' : pred.rsi > 50 ? 'Pozitif' : 'Zayıf';
-
-  document.getElementById('dMACD').textContent = (pred.macd >= 0 ? '+' : '') + pred.macd.toFixed(3);
-  document.getElementById('dMACD').className = 'metric-value ' + (pred.macd > 0 ? 'up' : 'down');
-  document.getElementById('dMACDSub').textContent = pred.macd > 0 ? 'Yükseliş trendi' : 'Düşüş trendi';
-
-  document.getElementById('dVol').textContent = pred.volatility > 1.5 ? 'Yüksek' : pred.volatility > 0.8 ? 'Orta' : 'Düşük';
-
-  document.getElementById('dSent').textContent = (pred.sentiment >= 0 ? '+' : '') + pred.sentiment.toFixed(2);
-  document.getElementById('dSent').className = 'metric-value ' + (pred.sentiment > 0 ? 'up' : 'down');
-
-  document.getElementById('dConf').textContent = pred.confidence.toFixed(0) + '%';
-  document.getElementById('dConfFill').style.width = pred.confidence.toFixed(0) + '%';
-
-  const reasoning = [];
-  if (pred.pctChange > 0) {
-    reasoning.push(`<strong>Senaryo:</strong> ${budget.toLocaleString('tr-TR')} ₺ ile şimdi ${fmtAmount(amountBought, c.symbol)} alıyorsun, ${horizon} gün sonra <strong>${fmtTL(finalTL)}</strong> ediyor.`);
-    reasoning.push(`<strong>Kazanç:</strong> Net ${fmtTL(profit)} kar (%${profitPct.toFixed(2)} getiri).`);
-    if (pred.rsi < 70) reasoning.push(`<strong>Teknik:</strong> RSI ${pred.rsi.toFixed(0)} — yükseliş için sağlıklı seviye, aşırı alım yok.`);
-    if (pred.macd > 0) reasoning.push(`<strong>MACD:</strong> Pozitif kesişim, momentum yukarı yönlü.`);
-    if (pred.sentiment > 0.3) reasoning.push(`<strong>Duygu:</strong> Piyasa duygusu boğa, talep güçlü.`);
-    reasoning.push(`<strong>Güven:</strong> Model bu tahmine %${pred.confidence.toFixed(0)} güveniyor.`);
-  } else {
-    reasoning.push(`<strong>Senaryo:</strong> ${budget.toLocaleString('tr-TR')} ₺ ile şimdi ${fmtAmount(amountBought, c.symbol)} alırsan, ${horizon} gün sonra <strong>${fmtTL(finalTL)}</strong>'ye düşmesi bekleniyor.`);
-    reasoning.push(`<strong>Kayıp:</strong> Tahmini ${fmtTL(Math.abs(profit))} zarar (%${Math.abs(profitPct).toFixed(2)}).`);
-    if (pred.rsi > 70) reasoning.push(`<strong>Teknik:</strong> RSI ${pred.rsi.toFixed(0)} — aşırı alım bölgesi, geri çekilme riski.`);
-    if (pred.macd < 0) reasoning.push(`<strong>MACD:</strong> Negatif kesişim, satış baskısı.`);
-    if (pred.sentiment < 0) reasoning.push(`<strong>Duygu:</strong> Piyasa duygusu zayıf.`);
-    reasoning.push(`<strong>Tavsiye:</strong> Bu vadede pozisyon almak yerine beklemek daha güvenli olabilir.`);
-  }
-
-  document.getElementById('dReasoning').innerHTML = reasoning.map(r => `<li>${r}</li>`).join('');
-
-  renderDetailChart(c, pred);
-
-  const panel = document.getElementById('detailPanel');
-  panel.classList.add('active');
-  panel.scrollIntoView({behavior: 'smooth', block: 'start'});
-}
-
+/* ============================================
+   DETAIL CHARTS
+============================================ */
 function renderDetailChart(c, pred) {
   const histPoints = 14;
   const data = [];
@@ -1249,6 +2223,9 @@ function renderDetailChart(c, pred) {
   }
   forecastData[forecastData.length - 1] = parseFloat(pred.targetPrice.toFixed(4));
 
+  const upperBand = forecastData.map((v, i) => v === null ? null : v * (1 + 0.01 * Math.max(0, i - histPoints)));
+  const lowerBand = forecastData.map((v, i) => v === null ? null : v * (1 - 0.01 * Math.max(0, i - histPoints)));
+
   const ctx = document.getElementById('detailChart').getContext('2d');
   if (detailChart) detailChart.destroy();
 
@@ -1260,19 +2237,21 @@ function renderDetailChart(c, pred) {
       labels,
       datasets: [
         {
-          label: 'Geçmiş',
-          data,
-          borderColor: '#8b95a8',
-          backgroundColor: 'rgba(139, 149, 168, 0.05)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.35,
-          pointRadius: 0,
-          pointHoverRadius: 5,
+          label: 'Üst Bant', data: upperBand, borderColor: 'transparent',
+          backgroundColor: isUp ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+          fill: '+1', tension: 0.35, pointRadius: 0,
         },
         {
-          label: 'AI Tahmini',
-          data: forecastData,
+          label: 'Alt Bant', data: lowerBand, borderColor: 'transparent',
+          backgroundColor: 'transparent', tension: 0.35, pointRadius: 0,
+        },
+        {
+          label: 'Geçmiş', data,
+          borderColor: '#8b95a8', backgroundColor: 'rgba(139, 149, 168, 0.05)',
+          borderWidth: 2, fill: true, tension: 0.35, pointRadius: 0, pointHoverRadius: 5,
+        },
+        {
+          label: 'AI Tahmini', data: forecastData,
           borderColor: isUp ? '#10b981' : '#ef4444',
           backgroundColor: ctx2 => {
             const g = ctx2.chart.ctx.createLinearGradient(0, 0, 0, 280);
@@ -1285,74 +2264,237 @@ function renderDetailChart(c, pred) {
             }
             return g;
           },
-          borderWidth: 2.5,
-          borderDash: [6, 4],
-          fill: true,
-          tension: 0.35,
-          pointRadius: 0,
-          pointHoverRadius: 6,
+          borderWidth: 2.5, borderDash: [6, 4], fill: true, tension: 0.35,
+          pointRadius: 0, pointHoverRadius: 6,
         }
       ]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 1000, easing: 'easeOutQuart' },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
-          position: 'top',
-          align: 'end',
+          position: 'top', align: 'end',
           labels: {
-            color: '#8b95a8',
-            font: { family: 'JetBrains Mono', size: 11 },
-            usePointStyle: true,
-            pointStyle: 'rectRounded',
-            boxWidth: 12,
-            boxHeight: 8
+            color: '#8b95a8', font: { family: 'JetBrains Mono', size: 10 },
+            usePointStyle: true, boxWidth: 8,
+            filter: item => !['Üst Bant', 'Alt Bant'].includes(item.text)
           }
         },
         tooltip: {
-          backgroundColor: '#1a2233',
-          borderColor: '#2dd4bf',
-          borderWidth: 1,
-          padding: 12,
+          backgroundColor: '#1a2233', borderColor: '#2dd4bf', borderWidth: 1, padding: 12,
           titleFont: { family: 'JetBrains Mono', size: 11 },
-          bodyFont: { family: 'JetBrains Mono', size: 13, weight: '700' },
-          titleColor: '#8b95a8',
-          bodyColor: '#e6edf3',
-          callbacks: {
-            label: ctx => {
-              if (ctx.parsed.y === null) return '';
-              return ctx.dataset.label + ': ' + fmtPrice(ctx.parsed.y);
-            }
-          }
+          bodyFont: { family: 'JetBrains Mono', size: 12, weight: '700' },
+          titleColor: '#8b95a8', bodyColor: '#e6edf3',
+          filter: item => !['Üst Bant', 'Alt Bant'].includes(item.dataset.label),
+          callbacks: { label: ctx => ctx.parsed.y === null ? '' : ctx.dataset.label + ': ' + fmtPrice(ctx.parsed.y) }
         }
       },
       scales: {
-        x: {
-          grid: { color: 'rgba(31, 41, 55, 0.5)', drawTicks: false },
-          ticks: {
-            color: '#5a6478',
-            font: { family: 'JetBrains Mono', size: 10 },
-            maxRotation: 0,
-            autoSkip: true,
-            maxTicksLimit: 10
-          },
-          border: { display: false }
-        },
-        y: {
-          grid: { color: 'rgba(31, 41, 55, 0.5)', drawTicks: false },
-          ticks: {
-            color: '#5a6478',
-            font: { family: 'JetBrains Mono', size: 10 },
-            callback: v => fmtPrice(v)
-          },
-          border: { display: false },
-          position: 'right'
+        x: { grid: { color: 'rgba(31, 41, 55, 0.4)' }, ticks: { color: '#5a6478', font: { family: 'JetBrains Mono', size: 9 }, maxTicksLimit: 8 }, border: { display: false } },
+        y: { grid: { color: 'rgba(31, 41, 55, 0.4)' }, ticks: { color: '#5a6478', font: { family: 'JetBrains Mono', size: 9 }, callback: v => fmtPrice(v) }, border: { display: false }, position: 'right' }
+      }
+    }
+  });
+}
+
+function renderRadarChart(c, pred) {
+  const ctx = document.getElementById('radarChart').getContext('2d');
+  if (radarChart) radarChart.destroy();
+
+  const rsiNorm = pred.rsi;
+  const macdNorm = Math.max(0, Math.min(100, 50 + pred.macd * 500));
+  const sentNorm = Math.max(0, Math.min(100, 50 + pred.sentiment * 50));
+  const confNorm = pred.confidence;
+  const trendNorm = Math.max(0, Math.min(100, 50 + c.trend * 25));
+  const volNorm = Math.max(0, Math.min(100, 100 - pred.volatility * 30));
+
+  radarChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: ['RSI', 'MACD', 'Duygu', 'Güven', 'Trend', 'İstikrar'],
+      datasets: [{
+        label: c.pair,
+        data: [rsiNorm, macdNorm, sentNorm, confNorm, trendNorm, volNorm],
+        borderColor: pred.pctChange >= 0 ? '#10b981' : '#ef4444',
+        backgroundColor: pred.pctChange >= 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)',
+        borderWidth: 2.5,
+        pointBackgroundColor: pred.pctChange >= 0 ? '#10b981' : '#ef4444',
+        pointBorderColor: '#fff', pointBorderWidth: 2,
+        pointRadius: 5, pointHoverRadius: 7
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 1500, easing: 'easeOutBack' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2233', borderColor: '#2dd4bf', borderWidth: 1, padding: 10,
+          titleFont: { family: 'JetBrains Mono', size: 11 },
+          bodyFont: { family: 'JetBrains Mono', size: 12, weight: '700' },
+          titleColor: '#8b95a8', bodyColor: '#e6edf3',
+          callbacks: { label: ctx => ctx.label + ': ' + ctx.parsed.r.toFixed(0) + '/100' }
+        }
+      },
+      scales: {
+        r: {
+          angleLines: { color: 'rgba(31, 41, 55, 0.8)' },
+          grid: { color: 'rgba(31, 41, 55, 0.6)' },
+          pointLabels: { color: '#e6edf3', font: { family: 'JetBrains Mono', size: 10, weight: '600' } },
+          ticks: { display: false }, min: 0, max: 100
         }
       }
     }
   });
+}
+
+function renderDistributionChart(c, pred) {
+  const ctx = document.getElementById('distributionChart').getContext('2d');
+  if (distributionChart) distributionChart.destroy();
+
+  const mean = pred.targetPrice;
+  const stddev = c.price * pred.volatility / 100 * Math.sqrt(horizon);
+  const points = 40;
+  const labels = [];
+  const data = [];
+  const minX = mean - 3 * stddev;
+  const maxX = mean + 3 * stddev;
+  for (let i = 0; i < points; i++) {
+    const x = minX + (maxX - minX) * (i / (points - 1));
+    const y = Math.exp(-Math.pow(x - mean, 2) / (2 * stddev * stddev)) / (stddev * Math.sqrt(2 * Math.PI));
+    labels.push(fmtPrice(x));
+    data.push(y);
+  }
+
+  const bgColors = labels.map((l, i) => {
+    const x = minX + (maxX - minX) * (i / (points - 1));
+    return x < c.price ? 'rgba(239, 68, 68, 0.6)' : 'rgba(16, 185, 129, 0.6)';
+  });
+
+  distributionChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Olasılık', data, backgroundColor: bgColors, borderColor: 'transparent', borderRadius: 2, barPercentage: 1, categoryPercentage: 1 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 1200, easing: 'easeOutQuart' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2233', borderColor: '#2dd4bf', borderWidth: 1, padding: 10,
+          titleFont: { family: 'JetBrains Mono', size: 11 },
+          bodyFont: { family: 'JetBrains Mono', size: 12, weight: '700' },
+          titleColor: '#8b95a8', bodyColor: '#e6edf3', displayColors: false,
+          callbacks: { title: items => 'Fiyat: ' + items[0].label, label: ctx => 'Yoğunluk: ' + (ctx.parsed.y * 100).toFixed(2) }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#5a6478', font: { family: 'JetBrains Mono', size: 9 }, maxTicksLimit: 6 }, border: { display: false } },
+        y: { grid: { display: false }, ticks: { display: false }, border: { display: false } }
+      }
+    },
+    plugins: [{
+      id: 'verticalLines',
+      afterDraw: (chart) => {
+        const { ctx, chartArea, scales } = chart;
+        const findIdx = (target) => {
+          let best = 0, bestDiff = Infinity;
+          for (let i = 0; i < points; i++) {
+            const x = minX + (maxX - minX) * (i / (points - 1));
+            const d = Math.abs(x - target);
+            if (d < bestDiff) { bestDiff = d; best = i; }
+          }
+          return best;
+        };
+        const curIdx = findIdx(c.price);
+        const tgtIdx = findIdx(mean);
+        const drawLine = (idx, color, label) => {
+          const x = scales.x.getPixelForValue(idx);
+          ctx.save();
+          ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+          ctx.beginPath(); ctx.moveTo(x, chartArea.top); ctx.lineTo(x, chartArea.bottom); ctx.stroke();
+          ctx.fillStyle = color;
+          ctx.font = '700 10px JetBrains Mono';
+          ctx.textAlign = 'center';
+          ctx.fillText(label, x, chartArea.top + 12);
+          ctx.restore();
+        };
+        drawLine(curIdx, '#8b95a8', 'Şimdi');
+        drawLine(tgtIdx, pred.pctChange >= 0 ? '#10b981' : '#ef4444', 'AI Hedef');
+      }
+    }]
+  });
+}
+
+function showDetail(pair) {
+  const c = currencies.find(x => x.pair === pair);
+  if (!c) return;
+  activeDetail = pair;
+
+  const pred = predict(c, horizon);
+  const amountBought = budget / c.price;
+  const finalTL = amountBought * pred.targetPrice;
+  const profit = finalTL - budget;
+  const profitPct = (profit / budget) * 100;
+
+  document.getElementById('detailTitle').textContent = `${c.flag} ${c.pair} — ${c.name}`;
+  document.getElementById('detailSub').textContent = c.desc;
+
+  document.getElementById('dCurrent').textContent = fmtPrice(c.price);
+  document.getElementById('dCurrentSub').textContent = '1 ' + c.symbol + ' = ' + fmtPrice(c.price) + ' TL';
+
+  document.getElementById('dTarget').textContent = fmtPrice(pred.targetPrice);
+  document.getElementById('dTarget').className = 'metric-value ' + (pred.pctChange >= 0 ? 'up' : 'down');
+  document.getElementById('dTargetSub').textContent = (pred.pctChange >= 0 ? '+' : '') + pred.pctChange.toFixed(2) + '% (' + horizon + ' gün)';
+
+  document.getElementById('dAmount').textContent = fmtAmount(amountBought, c.symbol);
+  document.getElementById('dFinal').textContent = fmtTL(finalTL);
+  document.getElementById('dFinal').className = 'metric-value ' + (profit >= 0 ? 'up' : 'down');
+
+  document.getElementById('dRSI').textContent = pred.rsi.toFixed(1);
+  document.getElementById('dRSI').className = 'metric-value ' + (pred.rsi > 50 ? 'up' : 'down');
+  document.getElementById('dRSISub').textContent = pred.rsi > 70 ? 'Aşırı alım' : pred.rsi < 30 ? 'Aşırı satım' : pred.rsi > 50 ? 'Pozitif' : 'Zayıf';
+
+  document.getElementById('dMACD').textContent = (pred.macd >= 0 ? '+' : '') + pred.macd.toFixed(3);
+  document.getElementById('dMACD').className = 'metric-value ' + (pred.macd > 0 ? 'up' : 'down');
+  document.getElementById('dMACDSub').textContent = pred.macd > 0 ? 'Yükseliş trendi' : 'Düşüş trendi';
+
+  document.getElementById('dVol').textContent = pred.volatility > 1.5 ? 'Yüksek' : pred.volatility > 0.8 ? 'Orta' : 'Düşük';
+  document.getElementById('dSent').textContent = (pred.sentiment >= 0 ? '+' : '') + pred.sentiment.toFixed(2);
+  document.getElementById('dSent').className = 'metric-value ' + (pred.sentiment > 0 ? 'up' : 'down');
+
+  document.getElementById('dConf').textContent = pred.confidence.toFixed(0) + '%';
+  document.getElementById('dConfFill').style.width = pred.confidence.toFixed(0) + '%';
+
+  const reasoning = [];
+  if (pred.pctChange > 0) {
+    reasoning.push(`<strong>Senaryo:</strong> ${budget.toLocaleString('tr-TR')} ₺ ile şimdi ${fmtAmount(amountBought, c.symbol)} alıyorsun, ${horizon} gün sonra <strong>${fmtTL(finalTL)}</strong> ediyor.`);
+    reasoning.push(`<strong>Kazanç:</strong> Net ${fmtTL(profit)} kar (%${profitPct.toFixed(2)} getiri).`);
+    if (pred.rsi < 70) reasoning.push(`<strong>Teknik:</strong> RSI ${pred.rsi.toFixed(0)} — yükseliş için sağlıklı seviye, aşırı alım yok.`);
+    if (pred.macd > 0) reasoning.push(`<strong>MACD:</strong> Pozitif kesişim, momentum yukarı yönlü.`);
+    if (pred.sentiment > 0.3) reasoning.push(`<strong>Duygu:</strong> Piyasa duygusu boğa, talep güçlü.`);
+    reasoning.push(`<strong>Güven:</strong> Model bu tahmine %${pred.confidence.toFixed(0)} güveniyor.`);
+  } else {
+    reasoning.push(`<strong>Senaryo:</strong> ${budget.toLocaleString('tr-TR')} ₺ ile şimdi ${fmtAmount(amountBought, c.symbol)} alırsan, ${horizon} gün sonra <strong>${fmtTL(finalTL)}</strong>'ye düşmesi bekleniyor.`);
+    reasoning.push(`<strong>Kayıp:</strong> Tahmini ${fmtTL(Math.abs(profit))} zarar (%${Math.abs(profitPct).toFixed(2)}).`);
+    if (pred.rsi > 70) reasoning.push(`<strong>Teknik:</strong> RSI ${pred.rsi.toFixed(0)} — aşırı alım bölgesi, geri çekilme riski.`);
+    if (pred.macd < 0) reasoning.push(`<strong>MACD:</strong> Negatif kesişim, satış baskısı.`);
+    if (pred.sentiment < 0) reasoning.push(`<strong>Duygu:</strong> Piyasa duygusu zayıf.`);
+    reasoning.push(`<strong>Tavsiye:</strong> Bu vadede pozisyon almak yerine beklemek daha güvenli olabilir.`);
+  }
+
+  const list = document.getElementById('dReasoning');
+  list.innerHTML = '';
+  setTimeout(() => { list.innerHTML = reasoning.map(r => `<li>${r}</li>`).join(''); }, 50);
+
+  renderDetailChart(c, pred);
+  renderRadarChart(c, pred);
+  renderDistributionChart(c, pred);
+
+  const panel = document.getElementById('detailPanel');
+  panel.classList.add('active');
+  panel.scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
 document.getElementById('detailClose').addEventListener('click', () => {
@@ -1365,7 +2507,7 @@ budgetInput.addEventListener('input', () => {
   const val = parseFloat(budgetInput.value);
   budget = isNaN(val) || val <= 0 ? 0 : val;
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-  renderRankings();
+  renderRankings(false);
   if (activeDetail) showDetail(activeDetail);
 });
 
@@ -1376,7 +2518,7 @@ document.querySelectorAll('.preset-btn').forEach(btn => {
     budgetInput.value = val;
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    renderRankings();
+    renderRankings(true);
     if (activeDetail) showDetail(activeDetail);
   });
 });
@@ -1386,21 +2528,72 @@ document.querySelectorAll('.horizon-tab').forEach(tab => {
     document.querySelectorAll('.horizon-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     horizon = parseInt(tab.dataset.horizon);
-    renderRankings();
+    renderRankings(true);
     if (activeDetail) showDetail(activeDetail);
   });
 });
 
-function tickPrices() {
+document.querySelectorAll('.chart-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    comparisonChartType = tab.dataset.charttype;
+    renderRankings(false);
+  });
+});
+
+/* ============================================
+   LIVE TICKS — Small drift between API refreshes
+============================================ */
+function microTick() {
+  // Small simulated drift on top of real prices to keep ticker alive
   currencies.forEach(c => {
-    const drift = (Math.random() - 0.5) * c.price * c.vol * 0.15;
+    const drift = (Math.random() - 0.5) * c.price * c.vol * 0.05;
     c.price = parseFloat((c.price + drift).toFixed(4));
   });
-  renderRankings();
+  renderRankings(false);
 }
 
-renderRankings();
-setInterval(tickPrices, 4000);
+/* ============================================
+   INIT — Bootstrap with live data
+============================================ */
+async function init() {
+  document.getElementById('preloaderText').textContent = 'Canlı kurlar çekiliyor...';
+  
+  const result = await fetchLiveRates();
+  
+  if (result.success) {
+    isLiveMode = true;
+    applyRates(result.rates, result.date);
+    document.getElementById('preloaderText').textContent = 'AI motoru hazırlanıyor...';
+  } else {
+    isLiveMode = false;
+    applyRates({}, null); // use fallbacks
+    document.getElementById('preloaderText').textContent = 'Yedek veri kullanılıyor...';
+  }
+  
+  // Initial price snapshot
+  currencies.forEach(c => { prevPrices[c.code] = c.price; });
+  
+  renderRankings(true);
+  
+  // Hide preloader
+  setTimeout(() => {
+    document.getElementById('preloader').classList.add('hidden');
+  }, 800);
+  
+  // Live updates
+  setInterval(microTick, 4000); // small drift every 4s
+  setInterval(async () => { // real refresh every 5 minutes
+    const r = await fetchLiveRates();
+    if (r.success) {
+      applyRates(r.rates, r.date);
+      renderRankings(false);
+    }
+  }, 300000);
+}
+
+init();
 </script>
 
 </body>
